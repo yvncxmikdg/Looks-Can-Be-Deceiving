@@ -1,0 +1,71 @@
+# Checkpoint-free BDAADJ baseline: emits a random displacement field. Used for the BDAADJ
+# inference smoke test (no trained weights / GPU required). Mirrors the Zampieri BDAADJ debug
+# config; only the model + model_parameters differ.
+# Channels live in their own file - see data_envs/Tasks/BDA/Channels/bdaadj_debug_channels.yaml.
+name: "RandomBaselineBDAADJ"
+model_type: "Tower"
+model: "RandomBaselineBDAADJ"
+task: "BDAADJ"
+validation:
+  validation_parameters:
+    batch_size: 2
+    validation_monitor: "val_ortho_inference_avg_IoU"
+    validation_monitor_mode: "max"
+    validation_checkpoint_save_top_k: 1
+    validation_reduce_lr_on_plateau_patience: 50
+    validation_reduce_lr_on_plateau_cooldown: 5
+training:
+  training_parameters:
+    batch_size: 2
+    grad_accumulation: 1
+    max_epochs: 1
+    samples_per_epoch: 64
+    gradient_clip_val: 100.0
+    alpha: 0.25
+    gamma: 2
+    l1_reg: 1.0e-07
+    l2_reg: 1.0e-08
+    log_images_every_n_steps: 100000
+    normalize_weights: false
+    output_class_weights_strategy: "uniform"
+    output_class_weights:
+      background: 1.0e-06
+      no damage: 1.95
+      minor damage: 3.193
+      major damage: 9.852
+      destroyed: 23.706
+      un-classified: 35.23
+    optimizer_parameters:
+      name: "AdamW"
+      lr: 5.0e-4
+      weight_decay: 1.0e-5
+    mask_x: 2048
+    mask_y: 2048
+    tile_x: 2048
+    tile_y: 2048
+    loss_parameters:
+      loss: [["cross entropy", 1.0]]
+      gamma: 2
+      alpha: 0.25
+      bins: 10
+      momentum: 0.9
+      smooth: 1.0e-06
+input:
+  normalized_inputs: true
+  mask_input: true
+  validation_parameters:
+    validation_sample_generation_strategy: "center"
+    validation_generate_adjusted_samples: false
+  training_parameters:
+    adj_teacher_force: true
+    adjustment_class_loss_weights:
+      background: 1.0e-06
+      no damage: 1.0
+      minor damage: 1.0
+      major damage: 0.5
+      destroyed: 0.25
+      un-classified: 0.0
+model_parameters:
+  initial_x_dim: 256
+  initial_y_dim: 256
+  source_dim: 2048

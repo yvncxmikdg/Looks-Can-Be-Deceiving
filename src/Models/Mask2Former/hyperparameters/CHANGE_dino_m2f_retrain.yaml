@@ -1,0 +1,97 @@
+# CHANGE-task transition of BDA_dino_m2f_retrain.yaml (the fine-tuned DINOv3 -> Mask2Former arm).
+# The architecture is inherited unchanged from that BDA config; everything that defines the task
+# surface or the training budget was matched to the CHANGE fleet, so this arm differs from the 12
+# existing arms only in the model. Matched to the fleet (reference:
+# ../../UperNet/hyperparameters/CHANGE_satmae_upernet_pretrained.yaml): task, n_cls 3, 512px
+# tiles/masks, max_epochs 4000, normalize_weights False, the "lrfix" validation policy (checkpoint
+# on val macro F1, schedule on val loss, early stopping off), an effective batch of 16, and plain
+# BN. Dropped from the BDA config: output_class_weights (BDA class names, and inert under the ipw
+# strategy anyway) and samples_per_epoch (dead -- epoch length comes from the datagen's
+# presentation_strategy_parameters.length).
+name: "CHANGE_Dino_M2F_Retrain"
+model_type: "MaskedEncoderDecoder"
+encoder_type: "Dino"
+decoder_type: "Mask2Former"
+task: "CHANGE"
+input:
+  normalized_inputs: true
+  mask_input: false
+training:
+  training_parameters:
+    alpha: 0.25
+    batch_size: 1
+    gamma: 2
+    # Per-PROCESS (Lightning accumulate_grad_batches), so the effective batch is
+    # num_gpus * batch_size * grad_accumulation. 16 assumes a SINGLE-GPU launch, giving 1*1*16 = 16
+    # to match the fleet arms this is compared against. Scale it inversely if num_gpus changes.
+    grad_accumulation: 16
+    l1_reg: 1.0e-09
+    l2_reg: 1.0e-08
+    log_images_every_n_steps: 100
+    output_class_weights_strategy: "ipw"
+    normalize_weights: False
+    mask_x: 512
+    mask_y: 512
+    max_epochs: 4000
+    optimizer_parameters:
+      name: "AdamW"
+      lr: 0.0001
+      weight_decay: 0.00001
+    tile_x: 512
+    tile_y: 512
+    loss_parameters:
+      loss: [["cross entropy", 1.0]]
+      gamma: 2
+      alpha: 0.25
+      bins: 10
+      momentum: 0.9
+      smooth: 1.0e-06
+validation:
+  validation_parameters:
+    batch_size: 1
+    validation_monitor: "val_macro_f1"
+    validation_monitor_mode: "max"
+    # See CHANGE_scalemae_upernet_pretrained.yaml: scheduler follows val loss, early stopping off.
+    validation_scheduler_monitor: "val_criterion_loss"
+    validation_scheduler_monitor_mode: "min"
+    validation_early_stopping_patience: 0
+    validation_checkpoint_save_top_k: 3
+    validation_reduce_lr_on_plateau_patience: 8
+    validation_reduce_lr_on_plateau_cooldown: 3
+model_parameters:
+  decoder_parameters:
+    # The Mask2Former head's width dominates the whole model. At the inherited 2048/4096 (Meta's
+    # ViT-7B segmentor config) the head alone is 674M parameters against a 303M ViT-L backbone,
+    # which cost ~8.8GB checkpoints, 40 of 48GB VRAM at batch size 1, and a backward 6x the
+    # forward. 256/2048 is canonical Mask2Former. hidden_dim must stay divisible by 32 (GroupNorm)
+    # and by the 16 attention heads.
+    hidden_dim: 256
+    dim_feedforward: 2048
+    # NOTE: everything below this line is INERT on the Mask2Former path. Mask2Former.py reads only
+    # hidden_dim and dim_feedforward, and load_dinov3_backbone() reads no decoder_parameters at all
+    # (it hardcodes interaction_indexes=[2,9,16,23], which is what out_indicies would have said).
+    # They are UperNet keys the BDA config inherited. Kept so this file stays diffable against the
+    # rest of the fleet; set them to fleet values so nobody reads a stale one as meaningful.
+    in_channels: [1024, 1024, 1024, 1024]
+    in_index: [0,1,2,3]
+    pool_scales: [1,2,3,6]
+    channels: 1024
+    dropout_ratio: 0.1
+    # BN rather than the BDA arm's SyncBN: this arm runs at world size 1, where the two are
+    # computation-identical, and BN is what the fleet writes. Inert here either way.
+    norm_cfg:
+      type: 'BN'
+      requires_grad: True
+    align_corners: False
+    out_indicies: [2,9,16,23]
+  # Also inert on this path: Mask2FormerHead takes num_classes from len(output_label_map), i.e.
+  # from the channels yaml (Tasks/CHANGE/Channels/change_pred.yaml -> 3). Kept at the true value.
+  n_cls: 3
+  normalization: "vit"
+  encoder_parameters:
+    freeze_backbone: False
+    # Fine-tuning the pretrained ViT-L at the decoder's 1e-4 would destroy its features, so the
+    # backbone gets 1e-5 and the randomly-initialized adapter and head keep 1e-4.
+    backbone_lr_scale: 0.1
+    backbone: "dino"
+    backbone_path: "/data/group_data/hrail_modeling/pretrained_models/dinov3_vitl16_pretrain_sat493m-eadcf0ff.pth"
