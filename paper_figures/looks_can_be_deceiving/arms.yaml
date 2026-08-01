@@ -1,0 +1,23 @@
+# The architectures this paper scores, keyed by the arm slug embedded in each run directory name
+# (".../<timestamp>_<user>_change-post-512-<slug>_<commit>/"). Paper metadata, not code: a new arm is
+# a row here, and build_figure_data.py fails loudly on a run whose slug is missing rather than
+# silently dropping it.
+#
+#   pretty      display name used in every figure and table
+#   pretrained  whether the backbone started from pretrained weights -- this is the light/dark
+#               encoding in the fleet-AUC figure. Read off the CHANGE_*.yaml each run was launched
+#               with (backbone_path set and not commented out).
+arms:
+  scalemae:      {pretty: "ScaleMAE + UperNet",      pretrained: true}
+  scalemae-seg:  {pretty: "ScaleMAE + Segmenter",    pretrained: true}
+  satmae:        {pretty: "SatMAE + UperNet",        pretrained: true}
+  convmae:       {pretty: "ConvMAE + UperNet",       pretrained: true}
+  dino-m2f:      {pretty: "DINOv3 + Mask2Former",    pretrained: true}
+  resnet:        {pretty: "ResNet101 + UperNet",     pretrained: false}
+  psp101:        {pretty: "ResNet101 + PSPNet",      pretrained: false}
+  dlv3p:         {pretty: "ResNet101 + DeepLabV3+",  pretrained: false}
+  vitl:          {pretty: "ViT-L + UperNet",         pretrained: false}
+  vitm:          {pretty: "ViT-M + UperNet",         pretrained: false}
+  vits:          {pretty: "ViT-S + UperNet",         pretrained: false}
+  unet-vanilla:  {pretty: "Vanilla U-Net",           pretrained: false}
+  unet-attn:     {pretty: "Attention U-Net",         pretrained: false}
