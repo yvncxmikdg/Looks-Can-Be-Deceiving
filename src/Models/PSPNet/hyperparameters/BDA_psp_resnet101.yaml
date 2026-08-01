@@ -1,0 +1,75 @@
+name: "BDA_PSP_ResNet101_CCE"
+model_type: "MaskedTower"
+model: "MaskedPSPNetResNet"
+task: "BDA"
+training:
+  training_parameters:
+    gradient_clip_val: 10.0
+    alpha: 0.25
+    batch_size: 1
+    gamma: 2
+    grad_accumulation: 8
+    l1_reg: 1.0e-06
+    l2_reg: 1.0e-05
+    log_images_every_n_steps: 100
+    mask_x: 1024
+    mask_y: 1024
+    max_epochs: 1000
+    optimizer_parameters:
+      name: "AdamW"
+      lr: 0.0005
+      weight_decay: 0.00001
+    output_class_weights_strategy: "ipw"
+    normalize_weights: False
+    output_class_weights:
+      background: 1.0e-06
+      no damage: 1.76
+      major damage: 9.32
+      minor damage: 3.68
+      destroyed: 33.4
+      un-classified: 40.06
+    tile_x: 1024
+    tile_y: 1024
+    loss_parameters:
+      loss: [["cross entropy", 1.0]]
+      gamma: 2
+      alpha: 0.25
+      bins: 10
+      momentum: 0.9
+      smooth: 1.0e-06
+validation:
+  validation_parameters:
+    validation_monitor: "val_macro_f1"
+    validation_monitor_mode: "max"
+    validation_checkpoint_save_top_k: 3
+    validation_reduce_lr_on_plateau_cooldown: 3
+    validation_reduce_lr_on_plateau_patience: 3
+    batch_size: 2
+input:
+  normalized_inputs: true
+  mask_input: false
+model_parameters:
+  n_cls: 6
+  encoder_parameters:
+    depth: 101
+    num_stages: 4
+    out_indices: [0, 1, 2, 3]
+    dilations: [1, 1, 2, 4]
+    strides: [1, 2, 1, 1]
+    norm_eval: False
+    contract_dilation: True
+  decoder_parameters:
+    in_channels: 2048
+    in_index: 3
+    channels: 512
+    pool_scales: [1, 2, 3, 6]
+    dropout_ratio: 0.1
+    align_corners: False
+  auxiliary_head_parameters:
+    in_channels: 1024
+    in_index: 2
+    channels: 256
+    num_convs: 1
+    concat_input: False
+    dropout_ratio: 0.1
+    align_corners: False

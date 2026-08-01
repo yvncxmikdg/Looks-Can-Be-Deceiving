@@ -1,0 +1,125 @@
+name: "BDA_UNet_v1_Attention_sUAS"
+model_type: "MaskedTower"
+model: "MaskedUNetTowerModule"
+task: "BDA"
+input:
+  normalized_inputs: true
+  mask_input: false
+  in_channels: 3
+training:
+  training_parameters:
+    gradient_clip_val: 10.0
+    batch_size: 1
+    grad_accumulation: 16
+    log_images_every_n_steps: 1
+    l1_reg: 0.0000001
+    mask_x: 1024
+    mask_y: 1024
+    max_epochs: 1000
+    optimizer_parameters:
+      name: "AdamW"
+      weight_decay: 0.00001
+      lr: 0.0001
+    output_class_weights_strategy: "ipw"
+    normalize_weights: False
+    tile_x: 1024
+    tile_y: 1024
+    loss_parameters:
+      loss: [["cross entropy", 1.0]]
+      gamma: 2
+      alpha: 0.25
+      bins: 10
+      momentum: 0.9
+      smooth: 1.0e-06
+validation:
+  validation_parameters:
+    batch_size: 1
+    validation_monitor: "val_macro_f1"
+    validation_monitor_mode: "max"
+    validation_checkpoint_save_top_k: 3
+    validation_reduce_lr_on_plateau_patience: 5
+    validation_reduce_lr_on_plateau_cooldown: 3
+model_parameters:
+  layers:
+    inc:
+      out_channels: 32
+      dilation: 1
+      kernel_size: 5
+      padding_mode: "reflect"
+      activation: "gelu"
+      normalization: "DynamicGroupLayerNorm"
+    down_1:
+      in_channels: 32
+      out_channels: 64
+      dilation: 1
+      kernel_size: 5
+      padding_mode: "reflect"
+      activation: "gelu"
+      normalization: "DynamicGroupLayerNorm"
+    down_2:
+      in_channels: 64
+      out_channels: 128
+      dilation: 1
+      kernel_size: 5
+      padding_mode: "reflect"
+      activation: "gelu"
+      normalization: "DynamicGroupLayerNorm"
+    down_3:
+      in_channels: 128
+      out_channels: 256
+      dilation: 1
+      kernel_size: 5
+      padding_mode: "reflect"
+      activation: "gelu"
+      normalization: "DynamicGroupLayerNorm"
+    down_4:
+      in_channels: 256
+      out_channels: 512
+      dilation: 1
+      kernel_size: 5
+      padding_mode: "reflect"
+      activation: "glu"
+      normalization: "DynamicGroupLayerNorm"
+    down_5:
+      in_channels: 512
+      out_channels: 1024
+      dilation: 1
+      kernel_size: 5
+      padding_mode: "reflect"
+      activation: "gelu"
+      normalization: "DynamicGroupLayerNorm"
+    up_0:
+      attention: True
+      bilinear: False
+      in_channels: 1024
+      out_channels: 512
+      activation: "gelu"
+      normalization: "DynamicGroupLayerNorm"
+    up_1:
+      attention: True
+      bilinear: False
+      in_channels: 512
+      out_channels: 256
+      activation: "gelu"
+      normalization: "DynamicGroupLayerNorm"
+    up_2:
+      attention: True
+      bilinear: False
+      in_channels: 256
+      out_channels: 128
+      activation: "gelu"
+      normalization: "DynamicGroupLayerNorm"
+    up_3:
+      attention: True
+      bilinear: False
+      in_channels: 128
+      out_channels: 64
+      activation: "gelu"
+      normalization: "DynamicGroupLayerNorm"
+    up_4:
+      attention: True
+      bilinear: False
+      in_channels: 64
+      out_channels: 32
+      activation: "gelu"
+      normalization: "DynamicGroupLayerNorm"

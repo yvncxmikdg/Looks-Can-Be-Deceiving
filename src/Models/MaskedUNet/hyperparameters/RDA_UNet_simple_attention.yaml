@@ -1,0 +1,111 @@
+name: "RDA_UNet_v1_CCE_Full_NoAttention"
+model_type: "MaskedTower"
+model: "MaskedUNetTowerModule"
+task: "RDA"
+input:
+  road_line_buffer_width_pixels: 40
+  road_line_segment_length_pixels: 40
+  normalized_inputs: true
+  mask_input: true
+validation:
+  validation_parameters:
+    batch_size: 1
+    validation_monitor: "val_macro_iou"
+    validation_monitor_mode: "max"
+    validation_checkpoint_save_top_k: 3
+    validation_reduce_lr_on_plateau_patience: 3
+    validation_reduce_lr_on_plateau_cooldown: 3
+training:
+  training_parameters:
+    gradient_clip_val: 10.0
+    batch_size: 1
+    grad_accumulation: 8
+    l1_reg: 1.0e-06
+    l2_reg: 1.0e-05
+    log_images_every_n_steps: 100
+    mask_x: 2048
+    mask_y: 2048
+    max_epochs: 100
+    optimizer_parameters:
+      name: "AdamW"
+      lr: 0.0005
+      weight_decay: 0.00001
+    output_class_weights_strategy: "ipw"
+    normalize_weights: False
+    output_class_weights:
+      Background: 1.0e-06
+      Partial: 45
+      Road Line: 1
+      Total: 35
+    samples_per_epoch: 4000
+    tile_x: 2048
+    tile_y: 2048
+    loss_parameters:
+      loss: [["cross entropy", 1.0]]
+      gamma: 2
+      alpha: 0.25
+      bins: 10
+      momentum: 0.9
+      smooth: 1.0e-06
+model_parameters:
+  layers:
+    inc:
+      out_channels: 32
+      dilation: 1
+      kernel_size: 5
+      padding_mode: "reflect"
+    down_1:
+      in_channels: 32
+      out_channels: 64
+      dilation: 1
+      kernel_size: 5
+      padding_mode: "reflect"
+    down_2:
+      in_channels: 64
+      out_channels: 128
+      dilation: 1
+      kernel_size: 5
+      padding_mode: "reflect"
+    down_3:
+      in_channels: 128
+      out_channels: 256
+      dilation: 1
+      kernel_size: 5
+      padding_mode: "reflect"
+    down_4:
+      in_channels: 256
+      out_channels: 512
+      dilation: 1
+      kernel_size: 5
+      padding_mode: "reflect"
+    down_5:
+      in_channels: 512
+      out_channels: 1024
+      dilation: 1
+      kernel_size: 5
+      padding_mode: "reflect"
+    up_0:
+      attention: True
+      bilinear: False
+      in_channels: 1024
+      out_channels: 512
+    up_1:
+      attention: True
+      bilinear: False
+      in_channels: 512
+      out_channels: 256
+    up_2:
+      attention: True
+      bilinear: False
+      in_channels: 256
+      out_channels: 128
+    up_3:
+      attention: True
+      bilinear: False
+      in_channels: 128
+      out_channels: 64
+    up_4:
+      attention: True
+      bilinear: False
+      in_channels: 64
+      out_channels: 32
