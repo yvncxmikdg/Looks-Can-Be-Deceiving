@@ -1,0 +1,85 @@
+# CHANGE-task transition of BDA_scalemae_upernet_pretrained.yaml (paper arm: ScaleMAE->UperNet).
+# Architecture hyperparameters are inherited from the BDA config; the task surface (classes,
+# tiling, validation policy) matches the CHANGE_UNet_attention baseline run so the arms compare
+# on general config: 3 classes (change_pred.yaml), 512px tiles (satellite-anchored 512 datagens),
+# scheduler on val loss, early stopping off, max_epochs bounded by the 12h wall clock.
+name: "CHANGE_UperNet_ScaleMae_CCE_Pretrained"
+model_type: "MaskedEncoderDecoder"
+encoder_type: "ScaleMAE"
+decoder_type: "UperNet"
+task: "CHANGE"
+input:
+  normalized_inputs: true
+  mask_input: false
+training:
+  training_parameters:
+    alpha: 0.25
+    batch_size: 1
+    gamma: 2
+    grad_accumulation: 16
+    l1_reg: 1.0e-09
+    l2_reg: 1.0e-08
+    log_images_every_n_steps: 100
+    output_class_weights_strategy: "ipw"
+    normalize_weights: False
+    mask_x: 512
+    mask_y: 512
+    max_epochs: 4000
+    optimizer_parameters:
+      name: "AdamW"
+      lr: 0.0001
+      weight_decay: 0.00001
+    tile_x: 512
+    tile_y: 512
+    loss_parameters:
+      loss: [["cross entropy", 1.0]]
+      gamma: 2
+      alpha: 0.25
+      bins: 10
+      momentum: 0.9
+      smooth: 1.0e-06
+validation:
+  validation_parameters:
+    batch_size: 1
+    validation_monitor: "val_macro_f1"
+    validation_monitor_mode: "max"
+    # The LR schedule follows val loss, not the checkpoint monitor: an early-epoch macro-F1 fluke
+    # otherwise sets a high-water mark that decays the LR to zero while the loss is still falling
+    # (observed on the CHANGE UNet baseline run).
+    validation_scheduler_monitor: "val_criterion_loss"
+    validation_scheduler_monitor_mode: "min"
+    # Early stopping watches the macro-F1 monitor, so the same fluke would kill long runs at
+    # ~epoch patience+1. Disabled until the metric is stable enough to trust.
+    validation_early_stopping_patience: 0
+    validation_checkpoint_save_top_k: 3
+    validation_reduce_lr_on_plateau_patience: 8
+    validation_reduce_lr_on_plateau_cooldown: 3
+model_parameters:
+  decoder_parameters:
+    in_channels: [1024, 1024, 1024, 1024]
+    in_index: [0,1,2,3]
+    pool_scales: [1,2,3,6]
+    channels: 1024
+    dropout_ratio: 0.1
+    # BDA runs this decoder as SyncBN under multi-GPU DDP; these arms run single-GPU, where plain
+    # BN is the identical computation (SyncBN only differs by syncing stats across devices) and
+    # SyncBN would fail without a process group.
+    norm_cfg:
+      type: 'BN'
+      requires_grad: True
+    align_corners: False
+    out_indicies: [2,9,16,23]
+  n_cls: 3
+  normalization: "vit"
+  encoder_parameters:
+    freeze_backbone: False
+    patch_size: 16
+    backbone: "scalemae"
+    backbone_path: "/data/group_data/hrail_modeling/pretrained_models/scalemae-vitlarge-800.pth"
+    normalization: "vit"
+    vit_model: vit_large_patch16
+    n_heads: 16
+    n_layers: 24
+    drop_path_rate: 0.1
+    dropout: 0.0
+    global_pool: False

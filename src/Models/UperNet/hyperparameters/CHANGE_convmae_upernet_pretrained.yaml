@@ -1,0 +1,80 @@
+# CHANGE-task transition of BDA_convmae_upernet_pretrained.yaml (wave-2 paper arm:
+# ConvMAE->UperNet). Architecture hyperparameters inherited from the BDA config; task surface
+# (classes, tiling, validation policy) matches the CHANGE baseline arms. img_input_size scales
+# with the tile size (stage sizes are input/1, /4, /8 -- the BDA yaml paired [1024, 256, 128]
+# with 1024px tiles), so 512px tiles take [512, 128, 64].
+name: "CHANGE_UperNet_Convmae_CCE_Pretrained"
+model_type: "MaskedEncoderDecoder"
+encoder_type: "ConvMAE"
+decoder_type: "UperNet"
+task: "CHANGE"
+input:
+  normalized_inputs: true
+  mask_input: false
+training:
+  training_parameters:
+    alpha: 0.25
+    batch_size: 1
+    gamma: 2
+    grad_accumulation: 16
+    l1_reg: 1.0e-09
+    l2_reg: 1.0e-08
+    log_images_every_n_steps: 100
+    output_class_weights_strategy: "ipw"
+    normalize_weights: False
+    mask_x: 512
+    mask_y: 512
+    max_epochs: 4000
+    optimizer_parameters:
+      name: "AdamW"
+      lr: 0.0001
+      weight_decay: 0.00001
+    tile_x: 512
+    tile_y: 512
+    loss_parameters:
+      loss: [["cross entropy", 1.0]]
+      gamma: 2
+      alpha: 0.25
+      bins: 10
+      momentum: 0.9
+      smooth: 1.0e-06
+validation:
+  validation_parameters:
+    batch_size: 1
+    validation_monitor: "val_macro_f1"
+    validation_monitor_mode: "max"
+    # See CHANGE_scalemae_upernet_pretrained.yaml: scheduler follows val loss, early stopping off.
+    validation_scheduler_monitor: "val_criterion_loss"
+    validation_scheduler_monitor_mode: "min"
+    validation_early_stopping_patience: 0
+    validation_checkpoint_save_top_k: 3
+    validation_reduce_lr_on_plateau_patience: 8
+    validation_reduce_lr_on_plateau_cooldown: 3
+model_parameters:
+  decoder_parameters:
+    in_channels: [384, 768, 1024, 1024]
+    in_index: [0,1,2,3]
+    pool_scales: [1,2,3,6]
+    channels: 1024
+    dropout_ratio: 0.1
+    # Single-GPU: plain BN is computation-identical to BDA's SyncBN at world size 1.
+    norm_cfg:
+      type: 'BN'
+      requires_grad: True
+    align_corners: False
+    out_indicies: [2,9,16,23]
+  n_cls: 3
+  normalization: "vit"
+  encoder_parameters:
+    freeze_backbone: False
+    backbone: "convmae"
+    backbone_path: "/data/group_data/hrail_modeling/pretrained_models/convmae-large.pth"
+    img_input_size: [512, 128, 64]
+    num_heads: 16
+    depth: [3,4,18]
+    patch_size: [4, 2, 4]
+    embed_dim: [384, 768, 1024]
+    mlp_ratio: [4, 4, 4]
+    drop_path_rate: 0.1
+    dropout: 0.0
+    global_pool: False

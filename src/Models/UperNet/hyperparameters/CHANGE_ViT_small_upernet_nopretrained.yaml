@@ -1,0 +1,74 @@
+# CHANGE-task transition of BDA_ViT_small_upernet_nopretrained.yaml (wave-2 paper arm:
+# ViT-S->UperNet, trained from scratch -- no pretrained backbone by design). Architecture
+# hyperparameters inherited from the BDA config; task surface (classes, tiling, validation
+# policy) matches the CHANGE baseline arms.
+name: "CHANGE_UperNet_VanillaViT_Small_CCE_NoPretrained"
+model_type: "MaskedEncoderDecoder"
+encoder_type: "ViT"
+decoder_type: "UperNet"
+task: "CHANGE"
+input:
+  normalized_inputs: true
+  mask_input: false
+training:
+  training_parameters:
+    alpha: 0.25
+    batch_size: 1
+    gamma: 2
+    grad_accumulation: 16
+    l1_reg: 1.0e-09
+    l2_reg: 1.0e-08
+    log_images_every_n_steps: 100
+    output_class_weights_strategy: "ipw"
+    normalize_weights: False
+    mask_x: 512
+    mask_y: 512
+    max_epochs: 4000
+    optimizer_parameters:
+      name: "AdamW"
+      lr: 0.0005
+      weight_decay: 0.0005
+    tile_x: 512
+    tile_y: 512
+    loss_parameters:
+      loss: [["cross entropy", 1.0]]
+      gamma: 2
+      alpha: 0.25
+      bins: 10
+      momentum: 0.9
+      smooth: 1.0e-06
+validation:
+  validation_parameters:
+    batch_size: 1
+    validation_monitor: "val_macro_f1"
+    validation_monitor_mode: "max"
+    # See CHANGE_scalemae_upernet_pretrained.yaml: scheduler follows val loss, early stopping off.
+    validation_scheduler_monitor: "val_criterion_loss"
+    validation_scheduler_monitor_mode: "min"
+    validation_early_stopping_patience: 0
+    validation_checkpoint_save_top_k: 3
+    validation_reduce_lr_on_plateau_patience: 8
+    validation_reduce_lr_on_plateau_cooldown: 3
+model_parameters:
+  decoder_parameters:
+    in_channels: [384, 384, 384, 384]
+    in_index: [0,1,2,3]
+    pool_scales: [1,2,3,6]
+    channels: 384
+    dropout_ratio: 0.1
+    # Single-GPU: plain BN is computation-identical to BDA's SyncBN at world size 1.
+    norm_cfg:
+      type: 'BN'
+      requires_grad: True
+    align_corners: False
+    out_indicies: [2,5, 8,11]
+  n_cls: 3
+  normalization: "vit"
+  encoder_name: "vit"
+  encoder_parameters:
+    backbone: "vit"
+    patch_size: 16
+    n_heads: 6
+    n_layers: 12
+    mlp_ratio: 4
+    embed_dim: 384
